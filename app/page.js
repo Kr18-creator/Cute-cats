@@ -1,3 +1,6 @@
+"use client"
+import { DndContext, useDraggable } from '@dnd-kit/core';
+import { useState } from 'react';
 import Card from "./components/Card";
 
 const documents = [
@@ -9,19 +12,48 @@ const documents = [
 ];
 
 export default function Home() {
+  const [items, setItems] = useState(documents);
+
+  const handleDragEnd = (event) => {
+    console.log("triggered")
+    const { active, over } = event;
+    console.log(active)
+    console.log("over", over)
+
+
+    if (active) {
+      console.log("happ")
+      const activeIndex = items.findIndex((item) => item.type === active?.id);
+      const overIndex = items.findIndex((item) => item.type === over?.id);
+
+      const newItems = Array.from(items);
+      const [movedItem] = newItems.splice(activeIndex, 1);
+      newItems.splice(overIndex, 0, movedItem);
+
+      setItems(newItems);
+    }
+  };
 
   return (
-    <>
+    <DndContext onDragEnd={handleDragEnd}>
       <h1>Home</h1>
       <div className="grid grid-cols-3 gap-4">
-        {documents.map((doc) => (
-          <Card 
-            key={doc.position} // Ensure each card has a unique key
-            document={doc}
-          />
+        {items.map((doc) => (
+          <DraggableCard key={doc.position} document={doc} />
         ))}
       </div>
-    </>
+    </DndContext>
   );
 }
 
+function DraggableCard({ document }) {
+  const { attributes, listeners, setNodeRef } = useDraggable({
+    id: document.type, // Use a unique identifier for each item
+  });
+
+  return (
+    <div ref={setNodeRef} {...listeners} {...attributes}>
+      <Card document={document} />
+    </div>
+  );
+}
