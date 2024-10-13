@@ -1,6 +1,6 @@
-"use client"
-import { DndContext, useDraggable } from '@dnd-kit/core';
-import { useState } from 'react';
+"use client";
+import { DndContext, useDraggable, useDroppable } from '@dnd-kit/core';
+import { useState, useEffect } from 'react';
 import Card from "./components/Card";
 
 const documents = [
@@ -13,36 +13,71 @@ const documents = [
 
 export default function Home() {
   const [items, setItems] = useState(documents);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    // Ensure that DnD context only runs on the client
+    setMounted(true);
+  }, []);
 
   const handleDragEnd = (event) => {
-    console.log("triggered")
     const { active, over } = event;
-    console.log(active)
-    console.log("over", over)
 
+    if (!over) {
+      console.log("Dropped outside a droppable area");
+      return;
+    }
 
-    if (active) {
-      console.log("happ")
-      const activeIndex = items.findIndex((item) => item.type === active?.id);
-      const overIndex = items.findIndex((item) => item.type === over?.id);
+    if (active.id !== over.id) {
+      console.log("Moving item:", active.id, "to", over.id);
 
-      const newItems = Array.from(items);
-      const [movedItem] = newItems.splice(activeIndex, 1);
-      newItems.splice(overIndex, 0, movedItem);
+      const activeIndex = items.findIndex((item) => item.type === active.id);
+      const overIndex = items.findIndex((item) => item.type === over.id);
 
-      setItems(newItems);
+      if (activeIndex !== -1 && overIndex !== -1) {
+        const newItems = Array.from(items);
+        const [movedItem] = newItems.splice(activeIndex, 1);
+        newItems.splice(overIndex, 0, movedItem);
+
+        setItems(newItems);
+      }
     }
   };
 
+  if (!mounted) {
+    // Prevent rendering the DndContext on the server
+    return null;
+  }
+
   return (
     <DndContext onDragEnd={handleDragEnd}>
-      <h1>Home</h1>
       <div className="grid grid-cols-3 gap-4">
         {items.map((doc) => (
-          <DraggableCard key={doc.position} document={doc} />
+          <DroppableContainer key={doc.type} id={doc.type}>
+            <DraggableCard document={doc} />
+          </DroppableContainer>
         ))}
       </div>
     </DndContext>
+  );
+}
+
+// Droppable container component
+function DroppableContainer({ id, children }) {
+  const { isOver, setNodeRef } = useDroppable({
+    id,
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        border: isOver ? '2px dashed blue' : '2px solid transparent',
+        padding: '8px',
+      }}
+    >
+      {children}
+    </div>
   );
 }
 
