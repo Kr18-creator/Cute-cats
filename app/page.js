@@ -3,24 +3,28 @@ import { DndContext, useDraggable, useDroppable } from '@dnd-kit/core';
 import { useState, useEffect } from 'react';
 import Card from "./components/Card";
 
-const documents = [
-  { type: "bank-draft", title: "Bank Draft", position: 0 },
-  { type: "bill-of-lading", title: "Bill of Lading", position: 1 },
-  { type: "invoice", title: "Invoice", position: 2 },
-  { type: "bank-draft-2", title: "Bank Draft 2", position: 3 },
-  { type: "bill-of-lading-2", title: "Bill of Lading 2", position: 4 },
-];
-
 export default function Home() {
-  const [items, setItems] = useState(documents);
+  const [items, setItems] = useState([]);
   const [mounted, setMounted] = useState(false);
 
+  // Fetch initial data from the backend API
   useEffect(() => {
-    // Ensure that DnD context only runs on the client
+    const fetchDocuments = async () => {
+      try {
+        const response = await fetch('http://localhost:8000/documents');
+        if (!response.ok) throw new Error('Network response was not ok');
+        const data = await response.json();
+        setItems(data);
+      } catch (error) {
+        console.error('Failed to fetch documents:', error);
+      }
+    };
+
+    fetchDocuments();
     setMounted(true);
   }, []);
 
-  const handleDragEnd = (event) => {
+  const handleDragEnd = async (event) => {
     const { active, over } = event;
 
     if (!over) {
@@ -38,9 +42,33 @@ export default function Home() {
         const newItems = Array.from(items);
         const [movedItem] = newItems.splice(activeIndex, 1);
         newItems.splice(overIndex, 0, movedItem);
-
+        
+        // Update state
         setItems(newItems);
+        
+        // Send updated order to backend
+        await updateDocumentOrder(newItems);
       }
+    }
+  };
+
+  const updateDocumentOrder = async (newItems) => {
+    try {
+      const response = await fetch('http://localhost:8000/documents', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(newItems),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update document order');
+      }
+
+      console.log('Document order updated successfully');
+    } catch (error) {
+      console.error(error);
     }
   };
 
