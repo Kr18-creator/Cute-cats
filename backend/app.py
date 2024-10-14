@@ -1,5 +1,4 @@
-# backend/app.py
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List
@@ -37,5 +36,22 @@ async def get_documents():
 @app.put("/documents", response_model=dict)
 async def update_documents(updated_docs: List[Document]):
     global documents
-    documents = updated_docs
+    
+    # Ensure the incoming data is valid
+    if not updated_docs:
+        raise HTTPException(status_code=400, detail="No documents provided for update.")
+    
+    # Update the in-memory storage with the new documents
+    documents = [doc.dict() for doc in updated_docs]  # Ensure that they are stored as dicts
     return {"message": "Documents updated successfully"}
+
+@app.post("/documents", response_model=dict)
+async def save_documents(new_docs: List[Document]):
+    global documents
+    
+    # Append new documents to the existing list, while ensuring uniqueness
+    for new_doc in new_docs:
+        if new_doc.type not in [doc['type'] for doc in documents]:
+            documents.append(new_doc.dict())
+    
+    return {"message": "Documents saved successfully", "documents": documents}

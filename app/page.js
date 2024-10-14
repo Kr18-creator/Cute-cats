@@ -6,6 +6,10 @@ import Card from "./components/Card";
 export default function Home() {
   const [items, setItems] = useState([]); // Start with an empty array
   const [mounted, setMounted] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [lastSaveTime, setLastSaveTime] = useState(Date.now());
+  const [saveInterval, setSaveInterval] = useState(null);
+  const [isDirty, setIsDirty] = useState(false); // Track if items have changed
 
   useEffect(() => {
     // Ensure that DnD context only runs on the client
@@ -42,8 +46,6 @@ export default function Home() {
     }
 
     if (active.id !== over.id) {
-      console.log("Moving item:", active.id, "to", over.id);
-
       const activeIndex = items.findIndex((item) => item.type === active.id);
       const overIndex = items.findIndex((item) => item.type === over.id);
 
@@ -53,9 +55,54 @@ export default function Home() {
         newItems.splice(overIndex, 0, movedItem);
 
         setItems(newItems);
+        setIsDirty(true); // Mark as dirty since items have changed
       }
     }
   };
+
+  const saveDocumentsToAPI = async () => {
+    if (!isDirty) return; // Avoid saving if no changes have been made
+
+    setIsSaving(true);
+    try {
+      const response = await fetch('http://localhost:8000/documents', {
+        method: 'PUT', // Use PUT for updating
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(items), // Ensure items match Document model
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save documents');
+      }
+
+      setLastSaveTime(Date.now());
+      console.log('Documents saved successfully');
+      setIsDirty(false); // Reset dirty flag after saving
+    } catch (error) {
+      console.error('Error saving documents:', error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  useEffect(() => {
+    // Start saving every 5 seconds
+    if (!saveInterval) {
+      const interval = setInterval(() => {
+        saveDocumentsToAPI();
+      }, 5000);
+      setSaveInterval(interval);
+    }
+
+    // Cleanup the interval on unmount
+    return () => {
+      clearInterval(saveInterval);
+    };
+  }, [items, saveInterval, isDirty]); // Re-run when items change or isDirty changes
+
+  const timeSinceLastSave = Math.floor((Date.now() - lastSaveTime) / 1000); // in seconds
 
   if (!mounted) {
     // Prevent rendering the DnDContext on the server
@@ -70,6 +117,10 @@ export default function Home() {
             <DraggableCard document={doc} />
           </DroppableContainer>
         ))}
+      </div>
+      {isSaving && <div className="spinner">Saving...</div>}
+      <div className="last-save-time">
+        {isSaving ? `Saving...` : `Last saved ${timeSinceLastSave} seconds ago`}
       </div>
     </DndContext>
   );
