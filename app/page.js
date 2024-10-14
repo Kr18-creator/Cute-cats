@@ -4,27 +4,36 @@ import { useState, useEffect } from 'react';
 import Card from "./components/Card";
 
 export default function Home() {
-  const [items, setItems] = useState([]);
+  const [items, setItems] = useState([]); // Start with an empty array
   const [mounted, setMounted] = useState(false);
 
-  // Fetch initial data from the backend API
   useEffect(() => {
-    const fetchDocuments = async () => {
-      try {
-        const response = await fetch('http://localhost:8000/documents');
-        if (!response.ok) throw new Error('Network response was not ok');
-        const data = await response.json();
-        setItems(data);
-      } catch (error) {
-        console.error('Failed to fetch documents:', error);
-      }
-    };
-
-    fetchDocuments();
+    // Ensure that DnD context only runs on the client
     setMounted(true);
   }, []);
 
-  const handleDragEnd = async (event) => {
+  const fetchDocuments = async () => {
+    const response = await fetch('http://localhost:8000/documents');
+    if (!response.ok) {
+      throw new Error('Failed to fetch documents');
+    }
+    const data = await response.json();
+    return data;
+  };
+
+  useEffect(() => {
+    const loadDocuments = async () => {
+      try {
+        const docs = await fetchDocuments();
+        setItems(docs);
+      } catch (error) {
+        console.error('Error loading documents:', error);
+      }
+    };
+    loadDocuments();
+  }, []); 
+
+  const handleDragEnd = (event) => {
     const { active, over } = event;
 
     if (!over) {
@@ -42,38 +51,14 @@ export default function Home() {
         const newItems = Array.from(items);
         const [movedItem] = newItems.splice(activeIndex, 1);
         newItems.splice(overIndex, 0, movedItem);
-        
-        // Update state
+
         setItems(newItems);
-        
-        // Send updated order to backend
-        await updateDocumentOrder(newItems);
       }
-    }
-  };
-
-  const updateDocumentOrder = async (newItems) => {
-    try {
-      const response = await fetch('http://localhost:8000/documents', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(newItems),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update document order');
-      }
-
-      console.log('Document order updated successfully');
-    } catch (error) {
-      console.error(error);
     }
   };
 
   if (!mounted) {
-    // Prevent rendering the DndContext on the server
+    // Prevent rendering the DnDContext on the server
     return null;
   }
 
