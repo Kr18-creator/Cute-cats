@@ -1,12 +1,18 @@
-FROM node:18-alpine
+version: '3.8'
 
-WORKDIR /app
+services:
+  frontend:
+    image: frontend:latest
+    build:
+      context: .
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
 
-COPY package*.json ./
-RUN npm install
-
-COPY . .
-
-EXPOSE 3000
-
-CMD ["npm", "run", "dev"]  # Or build for production
+  backend:
+    image: backend:latest
+    build:
+      context: ./backend
+    ports:
+      - "8000:8000"
